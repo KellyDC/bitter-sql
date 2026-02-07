@@ -101,10 +101,32 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit fix
+        run: npm audit fix --dry-run
+        continue-on-error: true
+
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint-and-format, test]
+    needs: [lint-and-format, test, security-audit]
 
     steps:
       - name: Checkout code
@@ -128,28 +150,6 @@ jobs:
           test -f dist/index.js
           test -f dist/cli.js
           test -f dist/index.d.ts
-
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-
-      - name: Run npm audit fix
-        run: npm audit fix --dry-run
-        continue-on-error: true
 
   publish-dry-run:
     name: Publish Dry Run

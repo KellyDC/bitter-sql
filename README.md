@@ -431,7 +431,7 @@ bitter-sql rekey -n legacy.db \
 
 ### Build Errors
 
-- Ensure you're using Node.js >= 18.0.0
+- Ensure you're using Node.js >= 20.0.0
 - Try removing `node_modules` and running `npm install` again
 - Check that all dependencies are properly installed
 
