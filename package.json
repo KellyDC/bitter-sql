@@ -41,17 +41,17 @@
   ],
   "author": {
     "name": "KellyDC",
-    "url": "https://github.com/kellydc"
+    "url": "https://github.com/KellyDC"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kellydc/bitter-sql.git"
+    "url": "git+https://github.com/KellyDC/bitter-sql.git"
   },
   "bugs": {
-    "url": "https://github.com/kellydc/bitter-sql/issues"
+    "url": "https://github.com/KellyDC/bitter-sql/issues"
   },
-  "homepage": "https://github.com/kellydc/bitter-sql#readme",
+  "homepage": "https://github.com/KellyDC/bitter-sql#readme",
   "engines": {
     "node": ">=18.0.0"
   },
