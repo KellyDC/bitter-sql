@@ -1,0 +1,60 @@
+# Development files
+src/
+
+# Configuration files
+tsconfig.json
+jest.config.js
+playwright.config.ts
+.eslintrc.json
+.prettierrc
+.env.example
+.env
+Makefile
+
+# Documentation (keep README and LICENSE)
+CONTRIBUTING.md
+SECURITY.md
+CHANGELOG.md
+
+# Test and build artifacts
+tests/
+test-results/
+coverage/
+playwright-report/
+tmp/
+example/
+test-scripts/
+*.log
+logs/
+*.db
+*.sqlite
+
+# Package files
+node_modules/
+*.tgz
+
+# IDE
+.vscode/
+.idea/
+
+# Prettier
+*.prettierrc
+.prettierignore
+
+# Husky
+.husky/
+
+# Git
+.git/
+.gitignore
+.github/
+.gitattributes
+
+# Misc
+*.tsbuildinfo
+.DS_Store
+
+# docs
+docs/
+
+

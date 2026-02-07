@@ -1,0 +1,28 @@
+# Dependency directories
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Test files (formatting not required for quality)
+tests/
+test-results/
+playwright-report/
+test-scripts/
+docs/
+tmp/
+examples/
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db

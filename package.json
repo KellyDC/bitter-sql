@@ -1,0 +1,86 @@
+{
+  "name": "bitter-sql",
+  "version": "1.0.0",
+  "description": "A flexible SQLite database scaffolding tool with encryption support using better-sqlite3-multiple-ciphers",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "bitter-sql": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "logo.svg",
+    "CIPHERS.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "ts-node src/cli.ts",
+    "test": "jest --coverage",
+    "test:e2e": "playwright test",
+    "type-check": "tsc --noEmit",
+    "audit": "npm audit",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "format": "prettier --write 'src/**/*.ts' '*.{json,md}'",
+    "format:check": "prettier --check 'src/**/*.ts' '*.{json,md}'",
+    "validate": "npm run clean && npm run build && npm test",
+    "precommit": "lint-staged && npm test && npm run build",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "sqlite",
+    "database",
+    "encryption",
+    "scaffold",
+    "better-sqlite3",
+    "cli",
+    "typescript"
+  ],
+  "author": {
+    "name": "KellyDC",
+    "url": "https://github.com/kellydc"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kellydc/bitter-sql.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kellydc/bitter-sql/issues"
+  },
+  "homepage": "https://github.com/kellydc/bitter-sql#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "^12.6.2",
+    "bitter-sql": "file:bitter-sql-1.0.0.tgz",
+    "chalk": "^5.6.2",
+    "dotenv": "^17.2.4",
+    "ora": "^9.3.0",
+    "winston": "^3.19.0",
+    "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.2.1",
+    "@types/yargs": "^17.0.35",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-security": "^3.0.1",
+    "husky": "^9.1.7",
+    "jest": "^30.2.0",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

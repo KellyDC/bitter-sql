@@ -1,0 +1,75 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "GMT+8"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "kellydc"
+    assignees:
+      - "kellydc"
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    # Group dependency updates
+    groups:
+      # Group all TypeScript-related dependencies
+      typescript:
+        patterns:
+          - "typescript*"
+          - "@types/*"
+          - "ts-*"
+      # Group all testing dependencies
+      testing:
+        patterns:
+          - "jest*"
+          - "@jest/*"
+          - "playwright*"
+          - "@playwright/*"
+      # Group all linting/formatting dependencies
+      code-quality:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "prettier*"
+          - "husky*"
+          - "lint-staged*"
+      # Group all build dependencies
+      build:
+        patterns:
+          - "webpack*"
+          - "babel*"
+          - "@babel/*"
+    # Allow both direct and indirect dependency updates
+    versioning-strategy: increase
+    # Ignore specific dependency updates
+    ignore:
+      # Ignore major version updates for Node.js types (manual review needed)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "GMT+8"
+    open-pull-requests-limit: 5
+    labels:
+      - "github-actions"
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
