@@ -1,6 +1,6 @@
 {
   "name": "bitter-sql",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A flexible SQLite database scaffolding tool with encryption support using better-sqlite3-multiple-ciphers",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -142,7 +142,7 @@ jobs:
           gh workflow run publish.yml --ref "v${VERSION}"
 
       - name: Close approval issue with confirmation comment
-        if: steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false'
+        if: ${{ steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.meta.outputs.version }}
