@@ -17,9 +17,9 @@ jobs:
       github.event.issue.state == 'open' &&
       contains(github.event.issue.labels.*.name, 'pending-release')
     permissions:
-      contents: write  # create tag + release
-      issues: write    # comment + close issue
-      actions: write   # dispatch publish workflow
+      contents: write # create tag + release
+      issues: write # comment + close issue
+      actions: write # dispatch publish workflow
 
     steps:
       - name: Validate comment and commenter
@@ -148,15 +148,7 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
           APPROVER: ${{ github.event.comment.user.login }}
         run: |
-          gh issue comment "${{ github.event.issue.number }}" \
-            --body "$(cat << EOF
-✅ Release **v${VERSION}** approved by @${APPROVER}.
-
-- Git tag \`v${VERSION}\` created
-- GitHub release created
-- npm publish workflow dispatched
-
-The package will be live on npm shortly.
-EOF
-)"
+          printf '✅ Release **v%s** approved by @%s.\n\n- Git tag `v%s` created\n- GitHub release created\n- npm publish workflow dispatched\n\nThe package will be live on npm shortly.\n' \
+            "${VERSION}" "${APPROVER}" "${VERSION}" > /tmp/comment.md
+          gh issue comment "${{ github.event.issue.number }}" --body-file /tmp/comment.md
           gh issue close "${{ github.event.issue.number }}" --reason "completed"

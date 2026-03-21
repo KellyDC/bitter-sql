@@ -88,35 +88,23 @@ jobs:
           PREV_VERSION: ${{ steps.version.outputs.prev_version }}
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          # Write issue body to a temp file using placeholders to avoid
-          # heredoc quoting issues with backticks and special characters.
-          cat > /tmp/release_issue.md << 'MARKDOWN'
-## Release Approval Required
-
-A version bump has been detected in `package.json` after CI passed on `main`.
-
-| Field            | Value |
-|------------------|-------|
-| Previous version | `PREV_VER` |
-| **New version**  | `NEW_VER` |
-| Commit           | `COMMIT` |
-
-## How to approve
-
-A repository maintainer (owner, member, or collaborator) must leave a comment
-containing only **`approved`** (case-insensitive) to trigger the release.
-
-Once approved, the workflow will automatically:
-1. Create git tag `vNEW_VER` at commit `COMMIT`
-2. Create a GitHub release for `vNEW_VER`
-3. Publish the package to npm via the publish workflow
-
-<!-- release-meta: version=NEW_VER sha=COMMIT -->
-MARKDOWN
-
-          sed -i "s/PREV_VER/${PREV_VERSION}/g" /tmp/release_issue.md
-          sed -i "s/NEW_VER/${NEW_VERSION}/g"   /tmp/release_issue.md
-          sed -i "s/COMMIT/${COMMIT_SHA}/g"     /tmp/release_issue.md
+          {
+            printf '## Release Approval Required\n\n'
+            printf 'A version bump has been detected in `package.json` after CI passed on `main`.\n\n'
+            printf '| Field            | Value |\n'
+            printf '|------------------|-------|\n'
+            printf '| Previous version | `%s` |\n' "${PREV_VERSION}"
+            printf '| **New version**  | `%s` |\n' "${NEW_VERSION}"
+            printf '| Commit           | `%s` |\n\n' "${COMMIT_SHA}"
+            printf '## How to approve\n\n'
+            printf 'A repository maintainer (owner, member, or collaborator) must leave a comment\n'
+            printf 'containing only **`approved`** (case-insensitive) to trigger the release.\n\n'
+            printf 'Once approved, the workflow will automatically:\n'
+            printf '1. Create git tag `v%s` at commit `%s`\n' "${NEW_VERSION}" "${COMMIT_SHA}"
+            printf '2. Create a GitHub release for `v%s`\n' "${NEW_VERSION}"
+            printf '3. Publish the package to npm via the publish workflow\n\n'
+            printf '<!-- release-meta: version=%s sha=%s -->\n' "${NEW_VERSION}" "${COMMIT_SHA}"
+          } > /tmp/release_issue.md
 
           gh issue create \
             --title "Release v${NEW_VERSION} — Approval Required" \
