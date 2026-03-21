@@ -1,0 +1,124 @@
+name: Version Gate
+
+# Runs after CI completes successfully on main.
+# Detects a version bump in package.json and opens an approval issue.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  check-version-bump:
+    name: Check for Version Bump
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Detect version bump in package.json
+        id: version
+        run: |
+          NEW_VERSION=$(node -p "require('./package.json').version")
+
+          # Retrieve previous commit's package.json (fallback if first commit)
+          git show HEAD~1:package.json > /tmp/prev_package.json 2>/dev/null \
+            || echo '{"version":"0.0.0"}' > /tmp/prev_package.json
+          PREV_VERSION=$(node -p "require('/tmp/prev_package.json').version")
+
+          # Count lines changed in package.json (0 = untouched)
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- package.json | wc -l | tr -d ' ')
+
+          # Semantic version comparison via Node.js env vars to avoid shell injection
+          IS_BUMP=$(NEW_VERSION="$NEW_VERSION" PREV_VERSION="$PREV_VERSION" node -e "
+            const n = process.env.NEW_VERSION.split('.').map(Number);
+            const p = process.env.PREV_VERSION.split('.').map(Number);
+            const bumped = n[0]>p[0]
+              || (n[0]===p[0] && n[1]>p[1])
+              || (n[0]===p[0] && n[1]===p[1] && n[2]>p[2]);
+            console.log(bumped ? 'true' : 'false');
+          ")
+
+          echo "new_version=${NEW_VERSION}"   >> "$GITHUB_OUTPUT"
+          echo "prev_version=${PREV_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "pkg_changed=${CHANGED}"       >> "$GITHUB_OUTPUT"
+          echo "is_bump=${IS_BUMP}"           >> "$GITHUB_OUTPUT"
+
+          echo "New: ${NEW_VERSION}  Prev: ${PREV_VERSION}  Changed: ${CHANGED}  Bump: ${IS_BUMP}"
+
+      - name: Skip — no version bump detected
+        if: ${{ steps.version.outputs.is_bump != 'true' || steps.version.outputs.pkg_changed == '0' }}
+        run: echo "No version bump in package.json — skipping release gate."
+
+      - name: Ensure pending-release label exists
+        if: ${{ steps.version.outputs.is_bump == 'true' && steps.version.outputs.pkg_changed != '0' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "pending-release" \
+            --color "0075ca" \
+            --description "Awaiting release approval" 2>/dev/null || true
+
+      - name: Check for existing open approval issue
+        if: ${{ steps.version.outputs.is_bump == 'true' && steps.version.outputs.pkg_changed != '0' }}
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OPEN=$(gh issue list \
+            --label "pending-release" \
+            --state open \
+            --json number \
+            --jq 'length')
+          echo "count=${OPEN}" >> "$GITHUB_OUTPUT"
+
+      - name: Create approval issue
+        if: ${{ steps.version.outputs.is_bump == 'true' && steps.version.outputs.pkg_changed != '0' && steps.existing.outputs.count == '0' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+          PREV_VERSION: ${{ steps.version.outputs.prev_version }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Write issue body to a temp file using placeholders to avoid
+          # heredoc quoting issues with backticks and special characters.
+          cat > /tmp/release_issue.md << 'MARKDOWN'
+## Release Approval Required
+
+A version bump has been detected in `package.json` after CI passed on `main`.
+
+| Field            | Value |
+|------------------|-------|
+| Previous version | `PREV_VER` |
+| **New version**  | `NEW_VER` |
+| Commit           | `COMMIT` |
+
+## How to approve
+
+A repository maintainer (owner, member, or collaborator) must leave a comment
+containing only **`approved`** (case-insensitive) to trigger the release.
+
+Once approved, the workflow will automatically:
+1. Create git tag `vNEW_VER` at commit `COMMIT`
+2. Create a GitHub release for `vNEW_VER`
+3. Publish the package to npm via the publish workflow
+
+<!-- release-meta: version=NEW_VER sha=COMMIT -->
+MARKDOWN
+
+          sed -i "s/PREV_VER/${PREV_VERSION}/g" /tmp/release_issue.md
+          sed -i "s/NEW_VER/${NEW_VERSION}/g"   /tmp/release_issue.md
+          sed -i "s/COMMIT/${COMMIT_SHA}/g"     /tmp/release_issue.md
+
+          gh issue create \
+            --title "Release v${NEW_VERSION} — Approval Required" \
+            --label "pending-release" \
+            --body-file /tmp/release_issue.md

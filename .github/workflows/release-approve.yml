@@ -1,0 +1,162 @@
+name: Release Approve
+
+# Listens for comments on issues labelled "pending-release".
+# An authorised maintainer approves by commenting "approved" (case-insensitive).
+# On approval: creates a git tag, creates a GitHub release, and dispatches
+# the publish workflow to push the new version to npm.
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  handle-approval:
+    name: Handle Release Approval
+    runs-on: ubuntu-latest
+    # Only process comments on open issues that carry the pending-release label
+    if: >-
+      github.event.issue.state == 'open' &&
+      contains(github.event.issue.labels.*.name, 'pending-release')
+    permissions:
+      contents: write  # create tag + release
+      issues: write    # comment + close issue
+      actions: write   # dispatch publish workflow
+
+    steps:
+      - name: Validate comment and commenter
+        id: validate
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}
+        run: |
+          # Normalise: trim whitespace and lowercase
+          NORMALISED=$(echo "$COMMENT_BODY" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+
+          if [ "$NORMALISED" != "approved" ]; then
+            echo "is_approval=false"    >> "$GITHUB_OUTPUT"
+            echo "not_authorized=false" >> "$GITHUB_OUTPUT"
+            echo "Comment is not an approval — ignoring."
+            exit 0
+          fi
+
+          # Only owner, members, and direct collaborators may approve
+          if [[ "$AUTHOR_ASSOCIATION" == "OWNER" \
+             || "$AUTHOR_ASSOCIATION" == "MEMBER" \
+             || "$AUTHOR_ASSOCIATION" == "COLLABORATOR" ]]; then
+            echo "is_approval=true"     >> "$GITHUB_OUTPUT"
+            echo "not_authorized=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_approval=false"   >> "$GITHUB_OUTPUT"
+            echo "not_authorized=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment — unauthorized approver
+        if: steps.validate.outputs.not_authorized == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --body "⚠️ Only repository maintainers (owner, member, or collaborator) can approve a release."
+
+      - name: Extract release metadata from issue body
+        if: steps.validate.outputs.is_approval == 'true'
+        id: meta
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Metadata is stored in an HTML comment:
+          # <!-- release-meta: version=X.Y.Z sha=<commit-sha> -->
+          VERSION=$(echo "$ISSUE_BODY" | grep -oP '(?<=release-meta: version=)[^\s]+')
+          SHA=$(echo "$ISSUE_BODY"     | grep -oP '(?<=sha=)[a-f0-9]+(?= -->)')
+
+          if [ -z "$VERSION" ] || [ -z "$SHA" ]; then
+            gh issue comment "${{ github.event.issue.number }}" \
+              --body "❌ Could not extract release metadata from this issue. Please close it and push the version bump again to generate a fresh approval issue."
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}"         >> "$GITHUB_OUTPUT"
+
+      - name: Checkout target commit
+        if: steps.validate.outputs.is_approval == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.sha }}
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        if: steps.validate.outputs.is_approval == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check tag does not already exist
+        if: steps.validate.outputs.is_approval == 'true'
+        id: tag-check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "refs/tags/v${VERSION}"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            gh issue comment "${{ github.event.issue.number }}" \
+              --body "⚠️ Tag \`v${VERSION}\` already exists — the release may have already been published. No action taken."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push git tag
+        if: steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          git tag -a "v${VERSION}" "${SHA}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub release
+        if: steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --target "${SHA}" \
+            --generate-notes \
+            --verify-tag
+
+      - name: Dispatch publish workflow
+        if: steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # Trigger publish.yml at the newly-created tag so it publishes
+          # exactly the code that was verified by CI.
+          # Note: workflow_dispatch is used because releases created with
+          # GITHUB_TOKEN do not re-trigger release: published in other workflows.
+          gh workflow run publish.yml --ref "v${VERSION}"
+
+      - name: Close approval issue with confirmation comment
+        if: steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          APPROVER: ${{ github.event.comment.user.login }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --body "$(cat << EOF
+✅ Release **v${VERSION}** approved by @${APPROVER}.
+
+- Git tag \`v${VERSION}\` created
+- GitHub release created
+- npm publish workflow dispatched
+
+The package will be live on npm shortly.
+EOF
+)"
+          gh issue close "${{ github.event.issue.number }}" --reason "completed"
