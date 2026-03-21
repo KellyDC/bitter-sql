@@ -132,12 +132,30 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.meta.outputs.version }}
+          COMMIT_SHA: ${{ steps.meta.outputs.sha }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          APPROVER: ${{ github.event.comment.user.login }}
         run: |
           # Trigger publish.yml at the newly-created tag so it publishes
           # exactly the code that was verified by CI.
           # Note: workflow_dispatch is used because releases created with
           # GITHUB_TOKEN do not re-trigger release: published in other workflows.
-          gh workflow run publish.yml --ref "v${VERSION}"
+          PUBLISH_REF="v${VERSION}"
+          PUBLISH_TAG="latest"
+
+          gh workflow run publish.yml \
+            --ref "${PUBLISH_REF}" \
+            -f tag="${PUBLISH_TAG}"
+
+          {
+            echo "## Release Dispatch"
+            echo "- approval issue: #${ISSUE_NUMBER}"
+            echo "- target commit: ${COMMIT_SHA}"
+            echo "- release ref: ${PUBLISH_REF}"
+            echo "- npm dist-tag: ${PUBLISH_TAG}"
+            echo "- approved by: @${APPROVER}"
+            echo "- publish workflow: dispatch requested"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Close approval issue with confirmation comment
         if: ${{ steps.validate.outputs.is_approval == 'true' && steps.tag-check.outputs.exists == 'false' }}
