@@ -12,10 +12,8 @@ jobs:
   handle-approval:
     name: Handle Release Approval
     runs-on: ubuntu-latest
-    # Only process comments on open issues that carry the pending-release label
-    if: >-
-      github.event.issue.state == 'open' &&
-      contains(github.event.issue.labels.*.name, 'pending-release')
+    # Only process comments on issues that carry the pending-release label
+    if: contains(github.event.issue.labels.*.name, 'pending-release')
     permissions:
       contents: write # create tag + release
       issues: write # comment + close issue
